@@ -12,7 +12,7 @@ namespace tetris
     class Program
     {
 
-        private enum blockType { T1, T2, T3, T4 };
+        private enum blockType { T1, T2, T3, T4,B2,B1 };
 
         private enum MoveDir { Left, Right, Down };
 
@@ -34,13 +34,18 @@ namespace tetris
         private static int mapHeight = 25;
 
         private static int gametime = 1000;
+        private static int score = 0;
+
+
 
         static void Main(string[] args)
         {
+            Testing();
             Init();
             DrawMap();
             GenerateBlock();
             DrawBlock();
+            ShowScore();
 
             while (true)
             {
@@ -62,6 +67,8 @@ namespace tetris
                         EraseBlock();
                         IfLine();
                         GenerateBlock();
+                        score += 10;
+                        ShowScore();
                         if (CheckCollision(MoveDir.Down)) break;
                         DrawMap();
                         DrawBlock();
@@ -120,18 +127,33 @@ namespace tetris
                     currentBlock = blockType.T2;
                     break;
                 case blockType.T2:
+                    currentBlock = blockType.T3;
                     if (CheckCollision(MoveDir.Right))
                     {
                         posBlock[0]--;
                     }
-                    currentBlock = blockType.T3;
                     break;
                 case blockType.T3:
                     currentBlock = blockType.T4;
                     break;
                 case blockType.T4:
                     currentBlock = blockType.T1;
+                    if (CheckCollision(MoveDir.Right))
+                    {
+                        posBlock[0]--;
+                    }
                     break;
+
+                case blockType.B1:
+                    currentBlock = blockType.B2;
+                    break;
+
+                case blockType.B2:
+                    currentBlock = blockType.B1;
+                    if (CheckCollision(MoveDir.Right)) posBlock[0]-- ;
+                    if (CheckCollision(MoveDir.Left)) posBlock[0]++;
+                    break;
+
             }
         }
 
@@ -173,7 +195,7 @@ namespace tetris
                 {0,0,0,0 },
                 {0,0,0,0 },
                 {0,1,0,0 },
-                {1,1,1, 0}, });
+                {1,1,1,0}, });
 
 
             map.Add(blockType.T2, new int[,] {
@@ -195,6 +217,20 @@ namespace tetris
                 {1,1,0,0 },
                 {0,1,0,0}, });
 
+
+            map.Add(blockType.B1, new int[,] {
+                {0,0,0,0 },
+                {0,0,0,0 },
+                {0,0,0,0 },
+                {1,1,1,0}, });
+
+
+            map.Add(blockType.B2, new int[,] {
+                {0,0,0,0 },
+                {0,1,0,0 },
+                {0,1,0,0 },
+                {0,1,0,0}, });
+
             Console.SetWindowSize(100, 35);
             Console.SetBufferSize(100, 35);
         }
@@ -202,11 +238,28 @@ namespace tetris
 
         private static void GenerateBlock()
         {
-            int letsRoll = new Random().Next(3);
 
-            if (letsRoll == 0) currentBlock = blockType.T1;
-            if (letsRoll == 1) currentBlock = blockType.T2;
-            if (letsRoll == 2) currentBlock = blockType.T3;
+            switch (new Random().Next(6))
+            {
+                case 0:
+                    currentBlock = blockType.T1;
+                    break;
+                case 1:
+                    currentBlock = blockType.T2;
+                    break;
+                case 2:
+                    currentBlock = blockType.T3;
+                    break;
+                case 3:
+                    currentBlock = blockType.T4;
+                    break;
+                case 4:
+                    currentBlock = blockType.B1;
+                    break;
+                case 5:
+                    currentBlock = blockType.B2;
+                    break;
+            }
 
 
             posBlock = new int[2];
@@ -273,27 +326,16 @@ namespace tetris
 
 
 
-
-            switch (currentBlock)
+            for (int y = 0; y < 4; y++)
             {
-                case blockType.T1:
-
-                    if (sim[0] + 3 > mapWidth || sim[0] < 0 || sim[1] + 4 > mapHeight)
+                for (int x = 0; x < 4; x++)
+                {
+                    if (   (map[currentBlock][y, x] == 1)  &&( ((sim[0] + x) > mapWidth-1) ||
+                        ((sim[1] + y) > mapHeight-1)  || ((sim[0] + x) < 0)))
+                    {
                         return true;
-                    break;
-                case blockType.T2:
-                    if (sim[0] + 2 > mapWidth || sim[0] < 0 || sim[1] + 4 > mapHeight)
-                        return true;
-                    break;
-                case blockType.T3:
-
-                    if (sim[0] + 3 > mapWidth || sim[0] < 0 || sim[1] + 4 > mapHeight)
-                        return true;
-                    break;
-                case blockType.T4:
-                    if (sim[0] + 2 > mapWidth || sim[0] < 0 || sim[1] + 4 > mapHeight)
-                        return true;
-                    break;
+                    }
+                }
             }
 
 
@@ -344,22 +386,30 @@ namespace tetris
         private static void IfLine()
         {
             int line = 0;
-
-            for (int height = mapHeight; height > 0; height--)
+            bool isLine = true;
+            while (isLine)
             {
-                for (int i = 0; i < COORDS.Count; i++)
+                isLine = false;
+
+                for (int height = mapHeight; height > 0; height--)
                 {
-                    int[] coords = COORDS[i];
+                    for (int i = 0; i < COORDS.Count; i++)
+                    {
+                        int[] coords = COORDS[i];
 
-                    if (coords[1] == height) line++;
+                        if (coords[1] == height) line++;
 
+                    }
+
+                    if (line == mapWidth)
+                    {
+                        score += 100;
+                        DeleteLine(height);
+                        isLine = true;
+                    }
+                    line = 0;
                 }
-
-                if (line == mapWidth) DeleteLine(height);
-
-                line = 0;
             }
-
         }
 
 
@@ -367,13 +417,17 @@ namespace tetris
 
         private static void DeleteLine(int row)
         {
-            HashSet<int> list = new HashSet<int>();
 
             for (int i = 0; i < COORDS.Count; i++)
             {
                 int[] coords = COORDS[i];
-                if (coords[1] == row) COORDS.RemoveAt(i);
+                if (coords[1] == row)
+                {
+                    COORDS.RemoveAt(i);
+                    i--;
+                }
             }
+
             ReorderBlocks(row);
         }
 
@@ -392,15 +446,27 @@ namespace tetris
 
 
 
-        private static void Debug(string message)
+        private static void ShowScore( )
         {
             Console.ForegroundColor = ConsoleColor.Black;
             Console.SetCursorPosition(mapWidth + 10, mapHeight - 20);
             Console.Write("                                                                   ");
             Console.BackgroundColor = ConsoleColor.Red;
             Console.SetCursorPosition(mapWidth + 10, mapHeight - 20);
-            Console.Write(message);
+            Console.Write("SCORE: " +score);
             Console.ResetColor();
+        }
+
+        public static void Testing()
+        {
+            for(int i = 0; i < 11; i++)
+            {
+                COORDS.Add(new int[] { i,24});
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                COORDS.Add(new int[] { i, 23 });
+            }
         }
 
 
